@@ -24,6 +24,11 @@ const apiHash = process.env.API_HASH;
 
 //imgBase.deleteMany({})
 
+function clearDB(){
+  imgBase.deleteMany({});
+  dataBase.deleteMany({});
+}
+//clearDB();
 imgBase.findOne({}).then(res => {
   console.log(res);
 })
@@ -86,7 +91,7 @@ async function main() {
     
         await USERS[id].client.invoke( new Api.auth.CheckPassword({ password: passwordSrp }) );
 
-        await dataBase.insertOne({ id, session: USERS[id].client.session.save() });
+        await dataBase.insertOne({ id, session: USERS[id].client.session.save(), post_image: null, post_text: null });
         res.json({ msg:'Вы были авторизованы!', code, password, id, session: USERS[id].client.session.save()});
         await client.disconnect();
         await client.destroy();
@@ -114,7 +119,6 @@ async function main() {
 
   });
   
-  // 1. загрузить фото
 
   app.post('/upload-image', async (req, res) => {
     const { id, current, thumb } = req.body;
@@ -123,42 +127,26 @@ async function main() {
   });
 
   app.post('/images', async (req, res) => {
-    const { id } = req.body;
     const imagesRaw = await imgBase.find({});
     const images = imagesRaw.map(item =>  { 
       return { current: item.current, thumb: item.thumb }
     })
-    console.log(imagesRaw);
-    console.log(images);
-
     res.json({ images });
   });
 
 
 
-  app.post('/text-image', async (req, res) => {
-    const { id, url } = req.body;
-
+  app.post('/save-post', async (req, res) => {
+    const { id, text, url } = req.body;
+    await dataBase.updateOne({ id:id }, { $set:{ post_image: url, post_text: text } });
+    res.json({ type: 200 });
   });
 
-  // 2. загрузить текст
-  app.post('/text-post', async (req, res) => {
-    const { id, text } = req.body;
-
-  });
-
-  //изменить пост
-  app.post('/change-post', async (req, res) => {
-    const { id } = req.body;
-  });
 }
 main();
 
 
-// 2. загрузить текст
-// 3. 
-// 4. 
-// 5. 
+
 
 
 app.listen(3042, (err) => {
