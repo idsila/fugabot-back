@@ -167,8 +167,9 @@ async function main() {
 
 
   app.post('/save-post', async (req, res) => {
-    const { id, text, url } = req.body;
-    await dataBase.updateOne({ id:id }, { $set:{ post_image: url, post_text: text } });
+    const { id, full_name, text, url } = req.body;
+    console.log(req.body)
+    await dataBase.updateOne({ id, full_name }, { $set:{ post_image: url, post_text: text } });
     res.json({ type: 200 });
   });
 
