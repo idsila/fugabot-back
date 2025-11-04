@@ -29,12 +29,11 @@ function clearDB(){
   dataBase.deleteMany({});
 }
 //clearDB();
-// imgBase.findOne({}).then(res => {
-//   console.log(res);
-// })
+//dataBase.deleteMany({});
 dataBase.find({}).then(res => {
   console.log(res);
 })
+
   
 
 const USERS = {};
@@ -93,7 +92,9 @@ async function main() {
         })
       );
 
-      await dataBase.insertOne({ id, username, isBanned: false, session: USERS[id].client.session.save(), post_image: null, post_text: null});
+      const me = await USERS[id].client.getMe();
+      await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
+
       res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});
       await USERS[id].client.disconnect();
       await USERS[id].client.destroy();
@@ -105,9 +106,11 @@ async function main() {
           const password = await USERS[id].password;
           const passwordSrp = await passwordUtils.computeCheck(passwordInfo, password);
           await USERS[id].client.invoke( new Api.auth.CheckPassword({ password: passwordSrp }) );
-  
-          await dataBase.insertOne({  id, username, isBanned: false, session: USERS[id].client.session.save(), post_image: null, post_text: null });
+
+          const me = await USERS[id].client.getMe();
+          await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
           res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});  
+
         }
         catch(err2){
           if (err2.errorMessage === "PASSWORD_HASH_INVALID") {
@@ -115,27 +118,35 @@ async function main() {
           } 
         }
       } else {
+
         console.error("❌ Ошибка входа:", err);
-        if (err.errorMessage === "PHONE_CODE_INVALID") {
+        if (err.errorMessage === "PHONE_CODE_INVALID") {    
           res.json({ type: 'error', msg:'Код введен не правильно!'});
         }
       }
 
+      if (err.errorMessage === "PHONE_CODE_EXPIRED") {
+        res.json({ type: 'error', msg:'Время кода истекло!'});
+      } 
       console.log('Удаляем временного пользователя');
       await USERS[id].client.disconnect();
       await USERS[id].client.destroy();
       delete USERS[id];
       console.log(USERS);
 
-      if (err.errorMessage === "PHONE_CODE_EXPIRED") {
-        res.json({ type: 'error', msg:'Время кода истекло!'});
-      } 
-
     }
 
   });
   
 
+  app.post('/auth/login', async (req, res) => {
+    const { id, username } = req.body;
+    console.log(id, username);
+    dataBase.find({id, username}).then(response => {
+
+      res.json({ accounts: response });
+    })
+  });
 
 
 
