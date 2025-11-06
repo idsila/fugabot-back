@@ -5,6 +5,7 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 
+const userBase = require('./userBase.js');
 const dataBase = require('./dataBase.js');
 const imgBase = require('./imgBase.js');
 
@@ -14,13 +15,21 @@ app.use(express.json());
 const { Api, TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const { password: passwordUtils } = require("telegram");
-const { channel } = require("diagnostics_channel");
-const { all } = require("axios");
+const { Telegraf, session, Scenes } = require("telegraf");
+const { keyboard } = require("telegraf/markup");
 
 
 const apiId = +process.env.API_ID;
 const apiHash = process.env.API_HASH;
+const bot = new Telegraf(process.env.BOT_TOKEN);
 
+bot.use(
+  session({
+    defaultSession: () => ({ write_user: false }),
+    defaultSession: () => ({ write_admin: false }),
+    defaultSession: () => ({ order_scena: false }),
+  })
+);
 
 //imgBase.deleteMany({})
 
@@ -30,16 +39,73 @@ function clearDB(){
 }
 //clearDB();
 //dataBase.deleteMany({});
-dataBase.find({}).then(res => {
-  console.log(res);
-})
+// dataBase.find({}).then(res => {
+//   console.log(res);
+// })
 
   
 
 const USERS = {};
 
 async function main() {
+
+  // TelegramBot
+
+  bot.action(/^approve_/i, async (ctx) => {
+    const [, idUser] = ctx.match.input.split("_");
+    await userBase.updateOne({ id: +idUser  }, { $set: { isValid: true } });
+    bot.telegram.sendMessage(idUser, `<blockquote><b>✅ Администратор подтвердил вашу заявку!</b></blockquote>`, { parse_mode:'HTML' });
+    ctx.reply(`<b>✅ Вы подтвердили заявку!</b>`, { parse_mode: "HTML" });
+  });
+
+  bot.action(/^cancel_/i, async (ctx) => {
+    const [, idUser] = ctx.match.input.split("_");
+    await userBase.updateOne({ id: +idUser  }, { $set: { isValid: false } });
+    bot.telegram.sendMessage(idUser, `<blockquote><b>❌ Администратор отказ вам в доступе!</b></blockquote>`, { parse_mode:'HTML' });
+    ctx.reply(`<b>❌ Вы отказли в доступе!</b>`, { parse_mode: "HTML" });
+  });
+
+  bot.command("start", async (ctx) => {
+    const { id, username, first_name, last_name  } = ctx.from;
+    const fullName = `${first_name ?? ''} ${ last_name ?? ''}`
+
+    const user = await userBase.findOne({ id, username });
+    console.log(user)
+    if(user === null){
+      console.log('Регаем')
+
+      await userBase.insertOne({ id, username, full_name: fullName, hash: hashCode(), isValid: false, isBanned: false });
+    }
+    else{
+      console.log('Вы уже зареганы')
+    }
+    
+    ctx.replyWithPhoto("https://i.ibb.co/jPXBncp6/card-start-fuga-bot.jpg", {
+      caption: `<b>Бот для настоящих 42 братух, подождите подверждения от Администратора для ииспользования бота.</b>`,
+      parse_mode: "HTML"
+    });
+
+    bot.telegram.sendMessage(process.env.ADMIN_ID, 
+      `<blockquote><b>Пользователь \n id:<code>${id}</code>  @${username}\n Подал заявку на вступление в фугабота.</b></blockquote>`,
+      { parse_mode:'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "✅ Подтвердить", callback_data: `approve_${id}` }],
+            [{ text: "❌ Отказать", callback_data: `cancel_${id}` }]
+          ]
+        }
+      })
+
+  });
+
+  bot.command("users", async (ctx) => {
+    const response = await userBase.find({});
+    console.log(response)
+  })
+
   
+
+  // MiniApp API
 
   app.post('/auth/phone', async (req, res) => {
     const { id, phone } = req.body;
@@ -141,11 +207,18 @@ async function main() {
 
   app.post('/auth/login', async (req, res) => {
     const { id, username } = req.body;
-    console.log(id, username);
-    dataBase.find({id, username}).then(response => {
+    console.log(req.body);
+    const user =  await userBase.findOne({ id, username });
+    console.log(user);
 
-      res.json({ accounts: response });
-    })
+
+    if(user === null || user.isBanned || !user.isValid ){
+      res.json({ type: 'error', accounts: [] });
+    }
+    else if(!user.isBanned && user.isValid){
+      const accounts = await dataBase.find({ id, username });
+      res.json({ type: 'succes', accounts });
+    }
   });
 
 
@@ -164,8 +237,6 @@ async function main() {
     res.json({ images });
   });
 
-
-
   app.post('/save-post', async (req, res) => {
     const { id, full_name, text, url } = req.body;
     console.log(req.body)
@@ -178,8 +249,22 @@ main();
 
 
 
+function hashCode(n = 8) {
+  const symbols =
+    "QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm1234567890";
+  let user_hash = "";
+  for (let i = 0; i != n; i++) {
+    user_hash += symbols[Math.floor(Math.random() * symbols.length)];
+  }
+  return user_hash;
+}
 
 
-app.listen(3042, (err) => {
-  err ? err : console.log("STARTED SERVER");
-});
+
+app.listen(3042, (err) => { err ? err : console.log("STARTED SERVER"); });
+
+
+bot.launch();
+
+
+
