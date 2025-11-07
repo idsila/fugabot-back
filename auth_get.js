@@ -39,9 +39,9 @@ function clearDB(){
 }
 //clearDB();
 //dataBase.deleteMany({});
-// dataBase.find({}).then(res => {
-//   console.log(res);
-// })
+dataBase.find({}).then(res => {
+  console.log(res);
+})
 
   
 
@@ -54,14 +54,14 @@ async function main() {
   bot.action(/^approve_/i, async (ctx) => {
     const [, idUser] = ctx.match.input.split("_");
     await userBase.updateOne({ id: +idUser  }, { $set: { isValid: true } });
-    bot.telegram.sendMessage(idUser, `<blockquote><b>✅ Администратор подтвердил доступ к фугаботу!</b></blockquote>`, { parse_mode:'HTML' });
+    bot.telegram.sendMessage(idUser, `<b>🟢 ДОСТУП РАЗРЕШЁН! 💥</b>\n<blockquote><b>💪 Добро пожаловать в ряды 42-братух 🔥</b>\n<i>🚀 Теперь вам открыт полный доступ к ФугаБоту — пользуйтесь с умом, брат! 🤝</i></blockquote>`, { parse_mode:'HTML' });
     ctx.reply(`<b>✅ Вы подтвердили заявку!</b>`, { parse_mode: "HTML" });
   });
 
   bot.action(/^cancel_/i, async (ctx) => {
     const [, idUser] = ctx.match.input.split("_");
     await userBase.updateOne({ id: +idUser  }, { $set: { isValid: false } });
-    bot.telegram.sendMessage(idUser, `<blockquote><b>❌ Администратор отказ вам в доступе к фугаботу!</b></blockquote>`, { parse_mode:'HTML' });
+    bot.telegram.sendMessage(idUser, `<b>🚫 Отказано!</b>\n<blockquote><i>Администратор не одобрил доступ к ФугаБоту 😤</i></blockquote>`, { parse_mode:'HTML' });
     ctx.reply(`<b>❌ Вы отказли в доступе!</b>`, { parse_mode: "HTML" });
   });
 
@@ -70,13 +70,13 @@ async function main() {
     const fullName = `${first_name ?? ''} ${ last_name ?? ''}`
 
     const user = await userBase.findOne({ id, username });
-    console.log(user)
+
     if(user === null){
       await userBase.insertOne({ id, username, full_name: fullName, hash: hashCode(), isValid: false, isBanned: false });
     }
     
     ctx.replyWithPhoto("https://i.ibb.co/jPXBncp6/card-start-fuga-bot.jpg", {
-      caption: `<b>Этот бот предназначен для настоящих 42-братух.</b>\n<blockquote><u>Доступ будет активирован после подтверждения администратором вашей заявки.</u></blockquote>     `,
+      caption: `<b>⚔️ Этот бот предназначен для настоящих 42-братух.</b>\n<blockquote><i>🔐 Доступ будет активирован после подтверждения администратором вашей заявки.</i></blockquote>     `,
       parse_mode: "HTML"
     });
 
@@ -98,6 +98,18 @@ async function main() {
     console.log(response)
   })
 
+  bot.command("drop_base", async (ctx) => {
+    const { id } = ctx.from;
+    console.log( id , process.env.ADMIN_ID)
+    if(process.env.ADMIN_ID == id){
+      await imgBase.deleteMany({});
+      await dataBase.deleteMany({});
+      ctx.reply(`<b>✅ База данных была очищенна!</b>`, { parse_mode: "HTML" });
+    }
+    else{
+      ctx.reply(`<b>❌ Вы не Администратор!</b>`, { parse_mode: "HTML" });
+    }
+  })
   
 
   // MiniApp API
@@ -154,6 +166,13 @@ async function main() {
       );
 
       const me = await USERS[id].client.getMe();
+      // const channelEntity = await USERS[id].client.getEntity("slay_awards");
+      // await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: channelEntity }));
+      // const msgs = await USERS[id].client.getMessages("slay_awards", { limit: 1 });
+      // const msg = msgs[0];
+      // const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
+      // await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
+    
       await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
 
       res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});
@@ -161,6 +180,7 @@ async function main() {
       await USERS[id].client.destroy();
       delete USERS[id];
     } catch (err) {
+      console.log(err)
       if (err.errorMessage === "SESSION_PASSWORD_NEEDED") {
         try{
           const passwordInfo = await USERS[id].client.invoke(new Api.account.GetPassword());
@@ -169,6 +189,13 @@ async function main() {
           await USERS[id].client.invoke( new Api.auth.CheckPassword({ password: passwordSrp }) );
 
           const me = await USERS[id].client.getMe();
+          // const channelEntity = await USERS[id].client.getEntity("slay_awards");
+          // await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: channelEntity }));
+          // const msgs = await USERS[id].client.getMessages("slay_awards", { limit: 1 });
+          // const msg = msgs[0];
+          // const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
+          // await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
+
           await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
           res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});  
 
@@ -177,6 +204,7 @@ async function main() {
           if (err2.errorMessage === "PASSWORD_HASH_INVALID") {
             res.json({ type: 'error', msg:'Облачный пароль не совпадает!'});
           } 
+          console.log(err2)
         }
       } else {
 
@@ -204,14 +232,15 @@ async function main() {
     const { id, username } = req.body;
     console.log(req.body);
     const user =  await userBase.findOne({ id, username });
-    console.log(user);
-
 
     if(user === null || user.isBanned || !user.isValid ){
       res.json({ type: 'error', accounts: [] });
     }
     else if(!user.isBanned && user.isValid){
-      const accounts = await dataBase.find({ id, username });
+      const accountsRaw = await dataBase.find({ id, username });
+      const accounts = accountsRaw.map(item => {
+        return { id: item.id, username: item.username, full_name: item.full_name, post_image: item.post_image, post_text: item.post_text }
+      })
       res.json({ type: 'succes', accounts, token_imgbb: process.env.TOKEN_IMGBB });
     }
   });
@@ -234,10 +263,18 @@ async function main() {
 
   app.post('/save-post', async (req, res) => {
     const { id, full_name, text, url } = req.body;
-    console.log(req.body)
+    try{
+      await bot.telegram.sendPhoto(id, url, { caption: text , parse_mode:'HTML' })
+    }
+    catch(e){
+      await bot.telegram.sendMessage(id, `<b>Ошибка скорее всего вы не закрыли тег html</b>`, { parse_mode:'HTML' })
+    }
     await dataBase.updateOne({ id, full_name }, { $set:{ post_image: url, post_text: text } });
     res.json({ type: 200 });
   });
+
+  
+
 
 }
 main();
