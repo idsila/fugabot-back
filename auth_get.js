@@ -217,7 +217,7 @@ async function main() {
     }
     else if(!user.isBanned && user.isValid){
       const accounts = await dataBase.find({ id, username });
-      res.json({ type: 'succes', accounts });
+      res.json({ type: 'succes', accounts, token_imgbb: process.env.TOKEN_IMGBB });
     }
   });
 
