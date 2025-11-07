@@ -54,14 +54,14 @@ async function main() {
   bot.action(/^approve_/i, async (ctx) => {
     const [, idUser] = ctx.match.input.split("_");
     await userBase.updateOne({ id: +idUser  }, { $set: { isValid: true } });
-    bot.telegram.sendMessage(idUser, `<blockquote><b>✅ Администратор подтвердил вашу заявку!</b></blockquote>`, { parse_mode:'HTML' });
+    bot.telegram.sendMessage(idUser, `<blockquote><b>✅ Администратор подтвердил доступ к фугаботу!</b></blockquote>`, { parse_mode:'HTML' });
     ctx.reply(`<b>✅ Вы подтвердили заявку!</b>`, { parse_mode: "HTML" });
   });
 
   bot.action(/^cancel_/i, async (ctx) => {
     const [, idUser] = ctx.match.input.split("_");
     await userBase.updateOne({ id: +idUser  }, { $set: { isValid: false } });
-    bot.telegram.sendMessage(idUser, `<blockquote><b>❌ Администратор отказ вам в доступе!</b></blockquote>`, { parse_mode:'HTML' });
+    bot.telegram.sendMessage(idUser, `<blockquote><b>❌ Администратор отказ вам в доступе к фугаботу!</b></blockquote>`, { parse_mode:'HTML' });
     ctx.reply(`<b>❌ Вы отказли в доступе!</b>`, { parse_mode: "HTML" });
   });
 
@@ -72,16 +72,11 @@ async function main() {
     const user = await userBase.findOne({ id, username });
     console.log(user)
     if(user === null){
-      console.log('Регаем')
-
       await userBase.insertOne({ id, username, full_name: fullName, hash: hashCode(), isValid: false, isBanned: false });
-    }
-    else{
-      console.log('Вы уже зареганы')
     }
     
     ctx.replyWithPhoto("https://i.ibb.co/jPXBncp6/card-start-fuga-bot.jpg", {
-      caption: `<b>Бот для настоящих 42 братух, подождите подверждения от Администратора для ииспользования бота.</b>`,
+      caption: `<b>Этот бот предназначен для настоящих 42-братух.</b>\n<blockquote><u>Доступ будет активирован после подтверждения администратором вашей заявки.</u></blockquote>     `,
       parse_mode: "HTML"
     });
 
