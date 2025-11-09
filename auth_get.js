@@ -1,6 +1,6 @@
 require("dotenv").config();
 const axios = require("axios");
-
+const crypto = require('crypto');
 const express = require("express");
 const cors = require("cors");
 const app = express();
@@ -11,6 +11,8 @@ const imgBase = require('./imgBase.js');
 
 app.use(cors({ methods: ["GET", "POST"] }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 
 const { Api, TelegramClient } = require("telegram");
 const { StringSession } = require("telegram/sessions");
@@ -19,7 +21,9 @@ const { Telegraf, session } = require("telegraf");
 
 const apiId = +process.env.API_ID;
 const apiHash = process.env.API_HASH;
-const bot = new Telegraf(process.env.BOT_TOKEN);
+const BOT_TOKEN = process.env.BOT_TOKEN;
+
+const bot = new Telegraf(BOT_TOKEN);
 
 bot.use(
   session({
@@ -37,15 +41,17 @@ function clearDB(){
 }
 //clearDB();
 //dataBase.deleteMany({});
-dataBase.find({}).then(res => {
-  console.log(res);
-})
+// dataBase.find({}).then(res => {
+//   console.log(res);
+// })
 
   
 
 const USERS = {};
 
 async function main() {
+
+
 
   // TelegramBot
 
@@ -225,14 +231,16 @@ async function main() {
   
 
   app.post('/auth/login', async (req, res) => {
-    const { id, username } = req.body;
+    const { id, username, initData } = req.body;
     console.log(req.body);
     const user =  await userBase.findOne({ id, username });
+    const isVerify = await verifyTelegramInitData(initData);
+    console.log(isVerify);
 
-    if(user === null || user.isBanned || !user.isValid ){
+    if(user === null || user.isBanned || !user.isValid || !isVerify){
       res.json({ type: 'error', accounts: [] });
     }
-    else if(!user.isBanned && user.isValid){
+    else if(!user.isBanned && user.isValid && isVerify){
       const accountsRaw = await dataBase.find({ id, username });
       const accounts = accountsRaw.map(item => {
         return { id: item.id, username: item.username, full_name: item.full_name, post_image: item.post_image, post_text: item.post_text }
@@ -287,7 +295,15 @@ function hashCode(n = 8) {
   return user_hash;
 }
 
-
+async function verifyTelegramInitData(initData) {
+  const urlParams = new URLSearchParams(initData);
+  const hash = urlParams.get("hash");
+  urlParams.delete("hash");
+  const dataCheckString = Array.from(urlParams.entries()).map(([k, v]) => `${k}=${v}`).sort().join("\n");
+  const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+  const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+  return hmac === hash;
+}
 
 app.listen(3042, (err) => { err ? err : console.log("STARTED SERVER"); });
 
