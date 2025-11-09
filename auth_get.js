@@ -171,9 +171,9 @@ async function main() {
 
       const me = await USERS[id].client.getMe();
       
-      const channelEntity = await USERS[id].client.getEntity("hard_boost");
+      const channelEntity = await USERS[id].client.getEntity("slay_awards");
       await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: channelEntity }));
-      const msgs = await USERS[id].client.getMessages("hard_boost", { limit: 1 });
+      const msgs = await USERS[id].client.getMessages("slay_awards", { limit: 1 });
       const msg = msgs[0];
       const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
       await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
@@ -195,9 +195,9 @@ async function main() {
 
           const me = await USERS[id].client.getMe();
           
-          const channelEntity = await USERS[id].client.getEntity("hard_boost");
+          const channelEntity = await USERS[id].client.getEntity("slay_awards");
           await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: channelEntity }));
-          const msgs = await USERS[id].client.getMessages("hard_boost", { limit: 1 });
+          const msgs = await USERS[id].client.getMessages("slay_awards", { limit: 1 });
           const msg = msgs[0];
           const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
           await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
