@@ -58,7 +58,7 @@ async function main() {
   bot.action(/^approve_/i, async (ctx) => {
     const [, idUser] = ctx.match.input.split("_");
     await userBase.updateOne({ id: +idUser  }, { $set: { isValid: true } });
-    bot.telegram.sendMessage(idUser, `<b>🟢 ДОСТУП РАЗРЕШЁН! 💥</b>\n<blockquote><b>💪 Добро пожаловать в ряды 42-братух 🔥</b>\n<i>🚀 Теперь вам открыт полный доступ к ФугаБоту — пользуйтесь с умом, брат! 🤝</i></blockquote>`, { parse_mode:'HTML' });
+    bot.telegram.sendMessage(idUser, `<b>✅ ДОСТУП РАЗРЕШЁН! </b>\n<blockquote><b>💪 Добро пожаловать в ряды 42-братух.\nТеперь вам открыт полный доступ к ФугаБоту — пользуйтесь с умом, брат! 🤝</b></blockquote>`, { parse_mode:'HTML' });
     ctx.reply(`<b>✅ Вы подтвердили заявку!</b>`, { parse_mode: "HTML" });
   });
 
