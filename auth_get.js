@@ -277,6 +277,8 @@ async function main() {
   // new methods 
   app.post('/add-post', async (req, res) => { 
     const { id, post_editor, hash } = req.body;
+    console.log(id, post_editor, hash);
+
     try{
       await bot.telegram.sendPhoto(id, post_editor.post_image, { caption: post_editor.post_text , parse_mode:'HTML' });
       await axios.post(`${process.env.URL_PING}/add-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
@@ -291,6 +293,7 @@ async function main() {
   
   app.post('/update-post', async (req, res) => { 
     const { id, post_editor, hash } = req.body;
+    console.log(id, post_editor, hash);
     try{
       await bot.telegram.sendPhoto(id, post_editor.post_image, { caption: post_editor.post_text , parse_mode:'HTML' });
       await axios.post(`${process.env.URL_PING}/update-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
