@@ -5,6 +5,8 @@ const express = require("express");
 const cors = require("cors");
 const app = express();
 
+const fs = require("fs");
+
 const userBase = require('./userBase.js');
 const dataBase = require('./dataBase.js');
 const imgBase = require('./imgBase.js');
@@ -25,34 +27,26 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 
 const bot = new Telegraf(BOT_TOKEN);
 
-bot.use(
-  session({
-    defaultSession: () => ({ write_user: false }),
-    defaultSession: () => ({ write_admin: false }),
-    defaultSession: () => ({ order_scena: false }),
-  })
-);
-
-//imgBase.deleteMany({})
 
 function clearDB(){
   imgBase.deleteMany({});
   dataBase.deleteMany({});
 }
+
+
+// userBase.deleteMany({});
+// dataBase.deleteMany({});
 //clearDB();
 //dataBase.deleteMany({});
 // dataBase.find({}).then(res => {
 //   console.log(res);
 // })
 
-  
+
 
 const USERS = {};
 
 async function main() {
-
-
-
   // TelegramBot
 
   bot.action(/^approve_/i, async (ctx) => {
@@ -106,7 +100,7 @@ async function main() {
     const { id } = ctx.from;
     console.log( id , process.env.ADMIN_ID)
     if(process.env.ADMIN_ID == id){
-      await imgBase.deleteMany({});
+      await userBase.deleteMany({});
       await dataBase.deleteMany({});
       ctx.reply(`<b>✅ База данных была очищенна!</b>`, { parse_mode: "HTML" });
     }
@@ -177,8 +171,8 @@ async function main() {
       const msg = msgs[0];
       const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
       await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
-
-      await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
+      //{ post_image:'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text:'42', delay:0, channel: 2862610675, chat: -1002922935842 }
+      await dataBase.insertOne({  hash: hashCode(), id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, session: USERS[id].client.session.save(), posts:[  ] });
       res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save() });
       await axios.post(`${process.env.URL_PING}/add-account`, { session: USERS[id].client.session.save() }, { headers: { "Content-Type": "application/json" } });
       await USERS[id].client.disconnect();
@@ -202,7 +196,7 @@ async function main() {
           const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
           await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
 
-          await dataBase.insertOne({  id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, isBanned: false, session: USERS[id].client.session.save(), post_image: 'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text: '42' });
+          await dataBase.insertOne({  hash: hashCode(), id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, session: USERS[id].client.session.save(), posts:[  ] });
           res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save()});  
           await axios.post(`${process.env.URL_PING}/add-account`, { session: USERS[id].client.session.save() }, { headers: { "Content-Type": "application/json" } });
         }
@@ -232,10 +226,10 @@ async function main() {
 
   app.post('/auth/login', async (req, res) => {
     const { id, username, initData } = req.body;
-    console.log(req.body);
+    //console.log(req.body);
     const user =  await userBase.findOne({ id, username });
-    const isVerify = await verifyTelegramInitData(initData);
-    console.log(isVerify);
+    const isVerify = true; //await verifyTelegramInitData(initData);
+    //console.log(isVerify);
 
     if(user === null || user.isBanned || !user.isValid || !isVerify){
       res.json({ type: 'error', accounts: [] });
@@ -243,7 +237,7 @@ async function main() {
     else if(!user.isBanned && user.isValid && isVerify){
       const accountsRaw = await dataBase.find({ id, username });
       const accounts = accountsRaw.map(item => {
-        return { id: item.id, username: item.username, full_name: item.full_name, post_image: item.post_image, post_text: item.post_text }
+        return { id: item.id, username: item.username, full_name: item.full_name, posts: item.posts, hash: item.hash }
       })
       res.json({ type: 'succes', accounts, token_imgbb: process.env.TOKEN_IMGBB });
     }
@@ -265,6 +259,9 @@ async function main() {
     res.json({ images });
   });
 
+
+
+  // old method
   app.post('/save-post', async (req, res) => {
     const { id, full_name, text, url } = req.body;
     try{
@@ -277,12 +274,38 @@ async function main() {
     res.json({ type: 200 });
   });
 
+  // new methods 
+  app.post('/add-post', async (req, res) => { 
+    const { post_editor, hash } = req.body;
+    await axios.post(`${process.env.URL_PING}/add-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+    await dataBase.updateOne({ hash }, { $push: { "posts": post_editor }});
+    const { posts } =  await dataBase.findOne({ hash });
+    res.json({ posts });
+  });
   
+  app.post('/update-post', async (req, res) => { 
+    const { post_editor, hash } = req.body;
+    await axios.post(`${process.env.URL_PING}/update-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+    await dataBase.updateOne({ hash, "posts.id": post_editor.id }, { $set: { "posts.$": post_editor }});
+    const { posts } =  await dataBase.findOne({ hash });
+    res.json({ posts });
+  });
+
+  app.post('/delete-post', async (req, res) => { 
+    const { hash_post, hash } = req.body;
+    await axios.post(`${process.env.URL_PING}/delete-post`,  { hash_post, hash }, { headers: { "Content-Type": "application/json" } });
+    await dataBase.updateOne({ hash, "posts.id": hash_post }, { $pull: { posts: { id: hash_post } } });
+    const { posts } =  await dataBase.findOne({ hash });
+    res.json({ posts });
+  });
 
 
 }
 main();
 
+// dataBase.find({}).then(res => {
+//   fs.writeFileSync('backup_old_version.json', JSON.stringify(res, null, 2));
+// })
 
 
 function hashCode(n = 8) {

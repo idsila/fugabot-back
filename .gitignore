@@ -13,3 +13,10 @@ package-lock.json
 app.js
 node_modules
 assets
+backup_new_version.json
+backup_old_version.json
+backup.json
+backup.js
+simple_server.js
+b.js
+backup_2025.json
