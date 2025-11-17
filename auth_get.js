@@ -276,16 +276,28 @@ async function main() {
 
   // new methods 
   app.post('/add-post', async (req, res) => { 
-    const { post_editor, hash } = req.body;
-    await axios.post(`${process.env.URL_PING}/add-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+    const { id, post_editor, hash } = req.body;
+    try{
+      await bot.telegram.sendPhoto(id, post_editor.post_image, { caption: post_editor.post_text , parse_mode:'HTML' });
+      await axios.post(`${process.env.URL_PING}/add-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+    }
+    catch(e){
+      await bot.telegram.sendMessage(id, `<b>Ошибка скорее всего вы не закрыли тег html</b>`, { parse_mode:'HTML' })
+    }
     await dataBase.updateOne({ hash }, { $push: { "posts": post_editor }});
     const { posts } =  await dataBase.findOne({ hash });
     res.json({ posts });
   });
   
   app.post('/update-post', async (req, res) => { 
-    const { post_editor, hash } = req.body;
-    await axios.post(`${process.env.URL_PING}/update-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+    const { id, post_editor, hash } = req.body;
+    try{
+      await bot.telegram.sendPhoto(id, post_editor.post_image, { caption: post_editor.post_text , parse_mode:'HTML' });
+      await axios.post(`${process.env.URL_PING}/update-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+    }
+    catch(e){
+      await bot.telegram.sendMessage(id, `<b>Ошибка скорее всего вы не закрыли тег html</b>`, { parse_mode:'HTML' })
+    }
     await dataBase.updateOne({ hash, "posts.id": post_editor.id }, { $set: { "posts.$": post_editor }});
     const { posts } =  await dataBase.findOne({ hash });
     res.json({ posts });
