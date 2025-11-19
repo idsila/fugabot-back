@@ -24,7 +24,7 @@ const { Telegraf, session } = require("telegraf");
 const apiId = +process.env.API_ID;
 const apiHash = process.env.API_HASH;
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const ADMIN_ID = process.env.ADMIN_ID;
+const ADMIN_ID = +process.env.ADMIN_ID;
 
 const bot = new Telegraf(BOT_TOKEN);
 
@@ -319,6 +319,13 @@ async function main() {
     const { posts } =  await dataBase.findOne({ hash });
     res.json({ posts });
   });
+
+
+  app.get('/admin-posts', async (req, res) => { 
+    const { posts } = await dataBase.findOne({ id:ADMIN_ID });
+    res.json({ posts });
+  });
+
 
 
 }
