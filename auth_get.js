@@ -321,7 +321,7 @@ async function main() {
   });
 
 
-  app.get('/admin-posts', async (req, res) => { 
+  app.post('/admin-posts', async (req, res) => { 
     const { posts } = await dataBase.findOne({ id:ADMIN_ID });
     res.json({ posts });
   });
