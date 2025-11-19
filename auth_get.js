@@ -24,6 +24,7 @@ const { Telegraf, session } = require("telegraf");
 const apiId = +process.env.API_ID;
 const apiHash = process.env.API_HASH;
 const BOT_TOKEN = process.env.BOT_TOKEN;
+const ADMIN_ID = process.env.ADMIN_ID;
 
 const bot = new Telegraf(BOT_TOKEN);
 
@@ -171,7 +172,7 @@ async function main() {
       const msg = msgs[0];
       const discussionChat = await USERS[id].client.getEntity(msg.replies.channelId);
       await USERS[id].client.invoke(new Api.channels.JoinChannel({ channel: discussionChat }));
-      //{ post_image:'https://i.ibb.co/Gv9sKtCQ/5opka-8.jpg', post_text:'42', delay:0, channel: 2862610675, chat: -1002922935842 }
+
       await dataBase.insertOne({  hash: hashCode(), id, username, full_name: `${me.firstName ?? ''} ${me.lastName ?? ''}`, session: USERS[id].client.session.save(), posts:[  ] });
       res.json({ type: 'succes', msg:'Вы были авторизованы!', session: USERS[id].client.session.save() });
       await axios.post(`${process.env.URL_PING}/add-account`, { session: USERS[id].client.session.save() }, { headers: { "Content-Type": "application/json" } });
@@ -264,6 +265,7 @@ async function main() {
   // old method
   app.post('/save-post', async (req, res) => {
     const { id, full_name, text, url } = req.body;
+    
     try{
       await bot.telegram.sendPhoto(id, url, { caption: text , parse_mode:'HTML' })
     }
@@ -277,11 +279,11 @@ async function main() {
   // new methods 
   app.post('/add-post', async (req, res) => { 
     const { id, post_editor, hash } = req.body;
-    console.log(id, post_editor, hash);
-
     try{
       await bot.telegram.sendPhoto(id, post_editor.post_image, { caption: post_editor.post_text , parse_mode:'HTML' });
-      await axios.post(`${process.env.URL_PING}/add-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+      if(id != ADMIN_ID){
+        await axios.post(`${process.env.URL_PING}/add-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+      }
     }
     catch(e){
       await bot.telegram.sendMessage(id, `<b>Ошибка скорее всего вы не закрыли тег html</b>`, { parse_mode:'HTML' })
@@ -296,7 +298,9 @@ async function main() {
     console.log(id, post_editor, hash);
     try{
       await bot.telegram.sendPhoto(id, post_editor.post_image, { caption: post_editor.post_text , parse_mode:'HTML' });
-      await axios.post(`${process.env.URL_PING}/update-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+      if(id != ADMIN_ID){
+        await axios.post(`${process.env.URL_PING}/update-post`,  { post_editor, hash }, { headers: { "Content-Type": "application/json" } });
+      }
     }
     catch(e){
       await bot.telegram.sendMessage(id, `<b>Ошибка скорее всего вы не закрыли тег html</b>`, { parse_mode:'HTML' })
@@ -307,9 +311,11 @@ async function main() {
   });
 
   app.post('/delete-post', async (req, res) => { 
-    const { hash_post, hash } = req.body;
-    await axios.post(`${process.env.URL_PING}/delete-post`,  { hash_post, hash }, { headers: { "Content-Type": "application/json" } });
-    await dataBase.updateOne({ hash, "posts.id": hash_post }, { $pull: { posts: { id: hash_post } } });
+    const { id, hash_post, hash } = req.body;
+    if(id != ADMIN_ID){
+      await axios.post(`${process.env.URL_PING}/delete-post`,  { hash_post, hash }, { headers: { "Content-Type": "application/json" } });
+    }
+      await dataBase.updateOne({ hash, "posts.id": hash_post }, { $pull: { posts: { id: hash_post } } });
     const { posts } =  await dataBase.findOne({ hash });
     res.json({ posts });
   });
